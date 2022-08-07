@@ -1,0 +1,62 @@
+# Specify a name for this workflow
+name: CICD
+# Run this workflow on pushes to master and pull requests into master
+on:
+  push
+  
+jobs:
+  test-react:
+  # Run this job only on runners with both of these labels
+    runs-on: ubuntu-latest
+  # Run using the `node:14` image in Docker
+    container: node:14
+    steps:
+  # First, checkout the repo
+    - uses: actions/checkout@v2
+  # Second, run Prettier
+  # Also name the step (will be shown in GitHub's UI; optional)
+    - name: Run Prettier
+      run: |
+        cd example-app
+        npm install
+        npx prettier --check .
+  build-react:
+    needs: test-react
+    runs-on: ubuntu-latest
+    container: node:14
+  # Specify environment variables for this job only
+    env:
+      GENERATE_SOURCEMAP: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build React App
+        run: |
+          cd example-app
+          npm install
+          npm run build
+      - name: Generate build artifact
+        run: tar -czvf example-app.tar.gz example-app/build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: react-build
+          path: example-app.tar.gz
+  deploy:
+    # Only deploy if the code was commited to master, not for PRs
+    if: github.ref == 'refs/heads/master'
+    needs: build-react
+    # Note no container is specified, this job will run in the shell
+    runs-on: [self-hosted, deploy]
+    env:
+      PORT: 8081
+    steps:
+      - uses: actions/checkout@v2
+      # Grab the build artifact from the previous job
+      - name: Download build artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: react-build
+      - name: Redeploy
+        run: |
+          tar -xvf example-app.tar.gz
+          docker-compose -p github up --force-recreate -d
