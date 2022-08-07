@@ -3,11 +3,11 @@ name: CICD
 # Run this workflow on pushes to master and pull requests into master
 on:
   push
-  
+
 jobs:
   test-react:
   # Run this job only on runners with both of these labels
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, docker]
   # Run using the `node:14` image in Docker
     container: node:14
     steps:
@@ -22,7 +22,7 @@ jobs:
         npx prettier --check .
   build-react:
     needs: test-react
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, docker]
     container: node:14
   # Specify environment variables for this job only
     env:
